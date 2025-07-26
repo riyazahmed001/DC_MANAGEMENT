@@ -126,3 +126,23 @@ def get_dc_delivery_details_with_date_filter(from_date, to_date):
     df["date"] = pd.to_datetime(df["date"]).dt.strftime('%d-%m-%Y')
     conn.close()
     return df
+
+def update_dc_delivery_entry(dc_entry_number, old_date, item, new_boxes, new_date=None):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+
+    if new_date:
+        c.execute("""
+            UPDATE dc_delivery_details 
+            SET boxes = ?, date = ?
+            WHERE dc_entry_number = ? AND item = ? AND date = ?
+        """, (new_boxes, new_date.isoformat(), dc_entry_number, item, old_date.isoformat()))
+    else:
+        c.execute("""
+            UPDATE dc_delivery_details 
+            SET boxes = ?
+            WHERE dc_entry_number = ? AND item = ? AND date = ?
+        """, (new_boxes, dc_entry_number, item, old_date.isoformat()))
+
+    conn.commit()
+    conn.close()

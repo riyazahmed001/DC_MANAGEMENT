@@ -11,6 +11,7 @@ from db import (
     get_dc_cumulative_delivery_details,
     get_dc_delivery_details_with_date_filter,
     update_dc_row,
+    update_dc_delivery_entry
 )
 import pandas as pd
 from datetime import datetime, date
@@ -180,35 +181,69 @@ with tab3:
 
     if "update_dc" in st.session_state and st.session_state.update_dc:
         update_dc = st.session_state.update_dc
-        # --- Section A: Update dc_rows ---
-        st.subheader("🗃 Update Master Row (dc_rows)")
+        
+        with st.expander("🗃 Update Master Row (dc_rows)"):
+            dc_row_data = fetch_dc_entry(update_dc)
+            if dc_row_data:
+                row_df = pd.DataFrame(dc_row_data)
+                st.dataframe(row_df, use_container_width=True, hide_index=True)
 
-        dc_row_data = fetch_dc_entry(update_dc)
-        if dc_row_data:
-            row_df = pd.DataFrame(dc_row_data)
-            st.dataframe(row_df, use_container_width=True, hide_index=True)
+                items = [row["Item"] for row in dc_row_data]
+                selected_item = st.selectbox("Select Item to Update in DC Rows", items)
 
-            items = [row["Item"] for row in dc_row_data]
-            selected_item = st.selectbox("Select Item to Update in DC Rows", items)
+                selected_row = next(row for row in dc_row_data if row["Item"] == selected_item)
 
-            selected_row = next(row for row in dc_row_data if row["Item"] == selected_item)
+                # Dozen input
+                new_dozen = st.number_input("New Dozen", min_value=0, step=1, value=selected_row["Dozen"])
 
-            # Dozen input
-            new_dozen = st.number_input("New Dozen", min_value=0, step=1, value=selected_row["Dozen"])
+                # Auto-compute boxes
+                new_boxes = compute_boxes(selected_item, new_dozen)
 
-            # Auto-compute boxes
-            new_boxes = compute_boxes(selected_item, new_dozen)
+                st.number_input("New boxes", value=new_boxes, disabled=True)
 
-            st.number_input("New boxes", value=new_boxes, disabled=True)
+                if st.button("💾 Update dc_rows Entry"):
+                    try:
+                        update_dc_row(update_dc, selected_item, new_dozen, new_boxes)
+                        st.success("✅ dc_rows updated successfully.")
+                    except Exception as e:
+                        st.error(f"❌ Failed to update dc_rows: {e}")
+            else:
+                st.info("No dc_rows found for this DC.")
 
-            if st.button("💾 Update dc_rows Entry"):
-                try:
-                    update_dc_row(update_dc, selected_item, new_dozen, new_boxes)
-                    st.success("✅ dc_rows updated successfully.")
-                except Exception as e:
-                    st.error(f"❌ Failed to update dc_rows: {e}")
-        else:
-            st.info("No dc_rows found for this DC.")
+        with st.expander("🚚 Update Delivery Entry (dc_delivery_details)"):
+            delivery_df = get_dc_delivery_details(update_dc)
+
+            if not delivery_df.empty:
+                st.dataframe(delivery_df, use_container_width=True, hide_index=True)
+
+                items_delivered = delivery_df["Item_Name"].unique()
+                delivery_dates = delivery_df["date"].unique()
+
+                col1, col2 = st.columns(2)
+                selected_item = col1.selectbox("Select Item from Delivery", items_delivered, key="delivery_item")
+                selected_date_str = col2.selectbox("Select Delivery Date", delivery_dates)
+                old_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+
+                # Existing box value for reference
+                existing_box_row = delivery_df[
+                    (delivery_df["Item_Name"] == selected_item) & (delivery_df["date"] == selected_date_str)
+                ]
+                old_box_val = float(existing_box_row["Delivered_Boxes"].values[0])
+
+                new_box_val = st.number_input("New Boxes Delivered", min_value=0.0, step=1.0, value=old_box_val)
+                change_date = st.checkbox("Change Delivery Date?")
+                new_date = None
+                if change_date:
+                    new_date = st.date_input("New Delivery Date", value=old_date)
+
+                if st.button("💾 Update Delivery Entry"):
+                    try:
+                        update_dc_delivery_entry(update_dc, old_date, selected_item, new_box_val, new_date)
+                        st.success("✅ Delivery entry updated successfully.")
+                    except Exception as e:
+                        st.error(f"❌ Failed to update delivery entry: {e}")
+            else:
+                st.info("No delivery records found for this DC.")
 
 # ============== TAB 4: VIEW Invoice Details ==============
 with tab4:
