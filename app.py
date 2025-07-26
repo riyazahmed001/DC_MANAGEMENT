@@ -151,7 +151,8 @@ with tab2:
                 with st.form(key="add_box_form"):
                     col1, col2, col3 = st.columns(3)
                     date = col1.date_input("Date", value=date.today())
-                    item = col2.selectbox("Item", items)
+                    filtered_items = [row["Item"] for row in dc_data]
+                    item = col2.selectbox("Item", filtered_items)
                     boxes = col3.number_input("No. of Boxes", min_value=1, step=1)
                     
                     submitted = st.form_submit_button("💾 Save Entry")
@@ -188,8 +189,8 @@ with tab3:
                 row_df = pd.DataFrame(dc_row_data)
                 st.dataframe(row_df, use_container_width=True, hide_index=True)
 
-                items = [row["Item"] for row in dc_row_data]
-                selected_item = st.selectbox("Select Item to Update in DC Rows", items)
+                filtered_items = [row["Item"] for row in dc_row_data]
+                selected_item = st.selectbox("Select Item to Update in DC Rows", filtered_items)
 
                 selected_row = next(row for row in dc_row_data if row["Item"] == selected_item)
 

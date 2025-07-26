@@ -78,6 +78,35 @@ def update_dc_row(dc_entry_number, item, new_dozen, new_boxes):
 def add_dc_delivery_details(dc_entry_number, date, item, boxes):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+
+    # Step 1: Fetch allowed box count from dc_rows
+    c.execute("""
+        SELECT boxes FROM dc_rows
+        WHERE dc_entry_number = ? AND item = ?
+    """, (dc_entry_number, item))
+    row = c.fetchone()
+    if row is None:
+        conn.close()
+        raise ValueError(f"No record found in dc_rows for DC {dc_entry_number} and item '{item}'.")
+
+    allowed_boxes = row[0]
+
+    # Step 2: Get current total delivered
+    c.execute("""
+        SELECT COALESCE(SUM(boxes), 0) FROM dc_delivery_details
+        WHERE dc_entry_number = ? AND item = ?
+    """, (dc_entry_number, item))
+
+    current_delivered = c.fetchone()[0]
+
+    # Step 3: Check if new delivery exceeds allowed
+    if current_delivered + boxes > allowed_boxes:
+        conn.close()
+        raise ValueError(
+            f"Cannot deliver {boxes} boxes for item '{item}'. "
+            f"Total would be {current_delivered + boxes}, exceeding the allowed {allowed_boxes}."
+        )
+        
     c.execute(
         "INSERT INTO dc_delivery_details (dc_entry_number, item, boxes, date) VALUES (?, ?, ?, ?)",
         (dc_entry_number, item, boxes, date.isoformat())
