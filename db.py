@@ -32,6 +32,13 @@ def init_db():
             date TEXT
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS invoices (
+            invoice_number TEXT PRIMARY KEY,
+            from_date TEXT,
+            to_date TEXT
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -106,7 +113,7 @@ def add_dc_delivery_details(dc_entry_number, date, item, boxes):
             f"Cannot deliver {boxes} boxes for item '{item}'. "
             f"Total would be {current_delivered + boxes}, exceeding the allowed {allowed_boxes}."
         )
-        
+
     c.execute(
         "INSERT INTO dc_delivery_details (dc_entry_number, item, boxes, date) VALUES (?, ?, ?, ?)",
         (dc_entry_number, item, boxes, date.isoformat())
@@ -175,3 +182,32 @@ def update_dc_delivery_entry(dc_entry_number, old_date, item, new_boxes, new_dat
 
     conn.commit()
     conn.close()
+
+def create_invoice(invoice_number, from_date, to_date):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO invoices (invoice_number, from_date, to_date)
+        VALUES (?, ?, ?)
+    ''', (invoice_number, from_date.isoformat(), to_date.isoformat()))
+    conn.commit()
+    conn.close()
+
+def get_invoice_delivery_details(invoice_number):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+
+    # Fetch invoice date range
+    c.execute('''
+        SELECT from_date, to_date FROM invoices WHERE invoice_number = ?
+    ''', (invoice_number,))
+    row = c.fetchone()
+    if row is None:
+        conn.close()
+        return None, None, pd.DataFrame()
+
+    from_date, to_date = row
+    from_date = datetime.fromisoformat(from_date).date()
+    to_date = datetime.fromisoformat(to_date).date()
+
+    return from_date, to_date, get_dc_delivery_details_with_date_filter(from_date, to_date)

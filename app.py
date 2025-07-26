@@ -11,7 +11,9 @@ from db import (
     get_dc_cumulative_delivery_details,
     get_dc_delivery_details_with_date_filter,
     update_dc_row,
-    update_dc_delivery_entry
+    update_dc_delivery_entry,
+    get_invoice_delivery_details,
+    create_invoice
 )
 import pandas as pd
 from datetime import datetime, date
@@ -25,7 +27,7 @@ def compute_boxes(item, dozens):
     return round(total_units / packing_mode.get(item, 1), 2)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4 = st.tabs(["➕ New DC Entry", "📋 View DC Details", "✏️ Update DC Details", "📋 View Invoice Details"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["➕ New DC Entry", "📋 View DC Details", "✏️ Update DC Details", "📋 Create Invoice Details", "🔍 View Invoice Details"])
 
 # ============== TAB 1: NEW DC ENTRY ==============
 with tab1:
@@ -248,7 +250,7 @@ with tab3:
 
 # ============== TAB 4: VIEW Invoice Details ==============
 with tab4:
-    st.title("📋 View Invoice Details")
+    st.title("📋 Create Invoice Details")
 
     # --- Date range selection ---
     col1, col2 = st.columns(2)
@@ -266,3 +268,30 @@ with tab4:
             st.warning("⚠️ No delivery entries found for this date range.")
         else:
             st.dataframe(df, hide_index=True, use_container_width=True)
+            invoice_no = st.text_input("📦 Invoice Number (e.g., INV_001)")
+            if st.button("✅ Create Invoice"):
+                if not invoice_no.strip():
+                    st.error("❌ Invoice number cannot be empty")
+                else:
+                    try:
+                        create_invoice(invoice_no.strip(), from_date, to_date)
+                        st.success(f"✅ Invoice '{invoice_no}' created!")
+                    except sqlite3.IntegrityError:
+                        st.error(f"❌ Invoice '{invoice_no}' already exists!")
+
+with tab5:
+    st.title("🔍 View Invoice Details")
+
+    invoice_search = st.text_input("Enter Invoice Number (e.g., INV_001)")
+
+    if st.button("🔎 Fetch Invoice"):
+        from_date, to_date, df = get_invoice_delivery_details(invoice_search.strip())
+
+        if from_date is None:
+            st.error(f"❌ No invoice found with number: {invoice_search}")
+        else:
+            st.info(f"📅 Invoice covers deliveries from **{from_date}** to **{to_date}**")
+            if df.empty:
+                st.warning("⚠️ No delivery records found in this invoice range.")
+            else:
+                st.dataframe(df, hide_index=True, use_container_width=True)
