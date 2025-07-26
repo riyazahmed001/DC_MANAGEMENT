@@ -76,12 +76,13 @@ def add_dc_delivery_details(dc_entry_number, date, item, boxes):
 def get_dc_delivery_details(dc_entry_number):
     conn = sqlite3.connect(DB_FILE)
     query = """
-        SELECT date, item as Item_Name, boxes as Expected_Box 
+        SELECT date, item as Item_Name, boxes as Delivered_Boxes 
         FROM dc_delivery_details
         WHERE dc_entry_number = ?
         ORDER BY item
     """
     df = pd.read_sql_query(query, conn, params=(dc_entry_number,))
+    df["Delivered_Boxes"] = df["Delivered_Boxes"].round(2)
     conn.close()
     return df
 
@@ -108,6 +109,7 @@ def get_dc_delivery_details_with_date_filter(from_date, to_date):
             ORDER BY date DESC
     '''
     df = pd.read_sql_query(query, conn, params=(from_date.isoformat(), to_date.isoformat()))
+    df["boxes"] = df["boxes"].round(2)
     # Convert date column to dd-mm-yyyy format
     df["date"] = pd.to_datetime(df["date"]).dt.strftime('%d-%m-%Y')
     conn.close()

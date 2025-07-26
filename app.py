@@ -122,7 +122,10 @@ with tab2:
 
             styled_df = df.style.set_properties(
                 subset=["is_delivery_completed"], **{"text-align": "center", "font-weight": "bold"}
-            )
+            ).format({
+                "total_delivered": "{:.2f}",
+                "Boxes": "{:.2f}"
+            }) 
 
             all_delivered = df["is_delivery_completed"].eq("✅").all()
 
