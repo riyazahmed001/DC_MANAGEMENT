@@ -26,7 +26,7 @@ with tab1:
 
     # Initialize a placeholder container for dynamic rows
     if "temp_rows" not in st.session_state:
-        st.session_state.temp_rows = [{"item": items[0], "dozen": 0}]
+        st.session_state.temp_rows = [{"item": items[0], "dozen": 1}]
 
     rows = st.session_state.temp_rows
     st.markdown("### 📝 Item Entries")
@@ -42,7 +42,7 @@ with tab1:
     for i, row in enumerate(rows):
         cols = st.columns([2, 2, 2, 1])
         row["item"] = cols[0].selectbox("Item", items, index=items.index(row["item"]), key=f"item_{i}", label_visibility="collapsed")
-        row["dozen"] = cols[1].number_input("dozen", min_value=0, value=row["dozen"], step=1, key=f"dozen_{i}", label_visibility="collapsed")
+        row["dozen"] = cols[1].number_input("dozen", min_value=1, value=row["dozen"], step=1, key=f"dozen_{i}", label_visibility="collapsed")
         boxes = compute_boxes(row["item"], row["dozen"])
         cols[2].number_input("boxes", value=boxes, disabled=True, key=f"box_{i}", label_visibility="collapsed")
 
@@ -56,7 +56,7 @@ with tab1:
         st.rerun()
     
     if st.button("➕ Add Row"):
-        rows.append({"item": items[0], "dozen": 0})
+        rows.append({"item": items[0], "dozen": 1})
         st.rerun()
 
     if st.button("💾 Save"):
@@ -78,7 +78,7 @@ with tab1:
                     ]
                 )
                 st.success("✅ Saved successfully to database!")
-                st.session_state.temp_rows = [{"item": items[0], "dozen": 0}]
+                st.session_state.temp_rows = [{"item": items[0], "dozen": 1}]
             except Exception as e:
                 st.error(f"❌ Error saving entry: {e}")
 
@@ -161,6 +161,7 @@ with tab2:
                 else:
                     st.info("No delivery entries found for this DC.")       
 
+# ============== TAB 3: VIEW Invoice Details ==============
 with tab3:
     st.title("📋 View Invoice Details")
 

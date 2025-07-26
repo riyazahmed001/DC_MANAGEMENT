@@ -20,7 +20,8 @@ def init_db():
             dc_entry_number TEXT,
             item TEXT,
             dozen INTEGER,
-            boxes REAL
+            boxes REAL,
+            UNIQUE(dc_entry_number, item)
         )
     ''')
     c.execute('''
