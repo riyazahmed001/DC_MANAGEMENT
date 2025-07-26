@@ -64,6 +64,17 @@ def fetch_dc_entry(dc_entry_number):
     conn.close()
     return [{"Item": item, "Dozen": dozen, "Boxes": boxes} for item, dozen, boxes in rows]
 
+def update_dc_row(dc_entry_number, item, new_dozen, new_boxes):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        UPDATE dc_rows 
+        SET dozen = ?, boxes = ?
+        WHERE dc_entry_number = ? AND item = ?
+    """, (new_dozen, new_boxes, dc_entry_number, item))
+    conn.commit()
+    conn.close()
+
 def add_dc_delivery_details(dc_entry_number, date, item, boxes):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()

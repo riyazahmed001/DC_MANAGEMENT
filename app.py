@@ -2,7 +2,16 @@ import streamlit as st
 import math
 from collections import defaultdict
 from config import items, packing_mode
-from db import init_db, create_dc_entry, fetch_dc_entry, add_dc_delivery_details, get_dc_delivery_details, get_dc_cumulative_delivery_details, get_dc_delivery_details_with_date_filter
+from db import (
+    init_db,
+    create_dc_entry,
+    fetch_dc_entry,
+    add_dc_delivery_details,
+    get_dc_delivery_details,
+    get_dc_cumulative_delivery_details,
+    get_dc_delivery_details_with_date_filter,
+    update_dc_row,
+)
 import pandas as pd
 from datetime import datetime, date
 
@@ -15,7 +24,7 @@ def compute_boxes(item, dozens):
     return round(total_units / packing_mode.get(item, 1), 2)
 
 # --- Tabs ---
-tab1, tab2, tab3 = st.tabs(["➕ New DC Entry", "📋 View DC Details", "📋 View Invoice Details"])
+tab1, tab2, tab3, tab4 = st.tabs(["➕ New DC Entry", "📋 View DC Details", "✏️ Update DC Details", "📋 View Invoice Details"])
 
 # ============== TAB 1: NEW DC ENTRY ==============
 with tab1:
@@ -161,8 +170,48 @@ with tab2:
                 else:
                     st.info("No delivery entries found for this DC.")       
 
-# ============== TAB 3: VIEW Invoice Details ==============
 with tab3:
+    st.title("✏️ Update DC Details")
+
+    update_dc = st.text_input("Enter DC_Entry_Number to update")
+
+    if st.button("🔍 Load DC Details"):
+        st.session_state.update_dc = update_dc
+
+    if "update_dc" in st.session_state and st.session_state.update_dc:
+        update_dc = st.session_state.update_dc
+        # --- Section A: Update dc_rows ---
+        st.subheader("🗃 Update Master Row (dc_rows)")
+
+        dc_row_data = fetch_dc_entry(update_dc)
+        if dc_row_data:
+            row_df = pd.DataFrame(dc_row_data)
+            st.dataframe(row_df, use_container_width=True, hide_index=True)
+
+            items = [row["Item"] for row in dc_row_data]
+            selected_item = st.selectbox("Select Item to Update in DC Rows", items)
+
+            selected_row = next(row for row in dc_row_data if row["Item"] == selected_item)
+
+            # Dozen input
+            new_dozen = st.number_input("New Dozen", min_value=0, step=1, value=selected_row["Dozen"])
+
+            # Auto-compute boxes
+            new_boxes = compute_boxes(selected_item, new_dozen)
+
+            st.number_input("New boxes", value=new_boxes, disabled=True)
+
+            if st.button("💾 Update dc_rows Entry"):
+                try:
+                    update_dc_row(update_dc, selected_item, new_dozen, new_boxes)
+                    st.success("✅ dc_rows updated successfully.")
+                except Exception as e:
+                    st.error(f"❌ Failed to update dc_rows: {e}")
+        else:
+            st.info("No dc_rows found for this DC.")
+
+# ============== TAB 4: VIEW Invoice Details ==============
+with tab4:
     st.title("📋 View Invoice Details")
 
     # --- Date range selection ---
