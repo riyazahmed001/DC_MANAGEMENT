@@ -102,11 +102,13 @@ def get_dc_cumulative_delivery_details(dc_entry_number):
 def get_dc_delivery_details_with_date_filter(from_date, to_date):
     conn = sqlite3.connect(DB_FILE)
     query = '''
-            SELECT dc_entry_number, item, boxes, date
+            SELECT dc_entry_number, date, item, boxes
             FROM dc_delivery_details
             WHERE date BETWEEN ? AND ?
             ORDER BY date DESC
     '''
     df = pd.read_sql_query(query, conn, params=(from_date.isoformat(), to_date.isoformat()))
+    # Convert date column to dd-mm-yyyy format
+    df["date"] = pd.to_datetime(df["date"]).dt.strftime('%d-%m-%Y')
     conn.close()
     return df
