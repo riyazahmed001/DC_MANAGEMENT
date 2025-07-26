@@ -54,7 +54,7 @@ def fetch_dc_entry(dc_entry_number):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('''
-        SELECT r.item, r.dozen, r.boxes
+        SELECT r.item, r.dozen, r.boxes 
         FROM 
         dc_rows r
         WHERE r.dc_entry_number = ?
@@ -76,10 +76,9 @@ def add_dc_delivery_details(dc_entry_number, date, item, boxes):
 def get_dc_delivery_details(dc_entry_number):
     conn = sqlite3.connect(DB_FILE)
     query = """
-        SELECT date, item, boxes 
+        SELECT date, item as Item_Name, boxes as Expected_Box 
         FROM dc_delivery_details
         WHERE dc_entry_number = ?
-        GROUP BY item
         ORDER BY item
     """
     df = pd.read_sql_query(query, conn, params=(dc_entry_number,))
@@ -90,12 +89,24 @@ def get_dc_delivery_details(dc_entry_number):
 def get_dc_cumulative_delivery_details(dc_entry_number):
     conn = sqlite3.connect(DB_FILE)
     query = """
-        SELECT item, SUM(boxes) as total_boxes
+        SELECT item as Item, SUM(boxes) as total_delivered
         FROM dc_delivery_details
         WHERE dc_entry_number = ?
         GROUP BY item
         ORDER BY item
     """
     df = pd.read_sql_query(query, conn, params=(dc_entry_number,))
+    conn.close()
+    return df
+
+def get_dc_delivery_details_with_date_filter(from_date, to_date):
+    conn = sqlite3.connect(DB_FILE)
+    query = '''
+            SELECT dc_entry_number, item, boxes, date
+            FROM dc_delivery_details
+            WHERE date BETWEEN ? AND ?
+            ORDER BY date DESC
+    '''
+    df = pd.read_sql_query(query, conn, params=(from_date.isoformat(), to_date.isoformat()))
     conn.close()
     return df

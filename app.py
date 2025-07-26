@@ -2,7 +2,7 @@ import streamlit as st
 import math
 from collections import defaultdict
 from config import items, packing_mode
-from db import init_db, create_dc_entry, fetch_dc_entry, add_dc_delivery_details, get_dc_delivery_details
+from db import init_db, create_dc_entry, fetch_dc_entry, add_dc_delivery_details, get_dc_delivery_details, get_dc_cumulative_delivery_details, get_dc_delivery_details_with_date_filter
 import pandas as pd
 from datetime import datetime, date
 
@@ -15,7 +15,7 @@ def compute_boxes(item, dozens):
     return round(total_units / packing_mode.get(item, 1), 2)
 
 # --- Tabs ---
-tab1, tab2, tab3 = st.tabs(["➕ New DC Entry", "📋 View DC Details", "Invoice Tab"])
+tab1, tab2, tab3 = st.tabs(["➕ New DC Entry", "📋 View DC Details", "📋 View Invoice Details"])
 
 # ============== TAB 1: NEW DC ENTRY ==============
 with tab1:
@@ -97,8 +97,40 @@ with tab2:
         if not dc_data:
             st.warning("❌ No entry found with that DC number.")
         else:
-            st.markdown(f"### DC Number: `{search_dc}`")
-            st.dataframe(pd.DataFrame(dc_data), hide_index=True, use_container_width=True)
+            
+            df = pd.DataFrame(dc_data)
+
+            # Fetch total delivered
+            delivered_df = get_dc_cumulative_delivery_details(search_dc)
+
+            # Merge on item
+            df = df.merge(delivered_df, on="Item", how="left")
+
+             # Fill NaN in total_boxes with 0 (in case no delivery yet)
+            df["total_delivered"] = df["total_delivered"].fillna(0)
+
+            # Calculate delivery completion status
+            df["is_delivery_completed"] = df["total_delivered"] >= df["Boxes"]
+
+                        # Styling function
+            # Replace boolean with icons
+            df["is_delivery_completed"] = df["is_delivery_completed"].map({True: "✅", False: "❌"})
+
+            # Optional: Add styling for the icons column (make it bold or center)
+            def style_icon(val):
+                return "text-align: center; font-weight: bold;"
+
+            styled_df = df.style.set_properties(
+                subset=["is_delivery_completed"], **{"text-align": "center", "font-weight": "bold"}
+            )
+
+            all_delivered = df["is_delivery_completed"].eq("✅").all()
+
+            # Show DC Number with status icon
+            status_icon = "✅ Completed" if all_delivered else "❌ Not Completed"
+
+            st.markdown(f"### DC Number: `{search_dc}` {status_icon}")
+            st.dataframe(styled_df, hide_index=True, use_container_width=True)
 
             with st.expander("Add Delivery Details to This DC"):
                 # 📥 Form to append new box entry
@@ -126,6 +158,22 @@ with tab2:
                 else:
                     st.info("No delivery entries found for this DC.")       
 
-# ============== TAB 3: PLACEHOLDER FOR INVOICE ==============
 with tab3:
-    st.title("Invoice Entry")
+    st.title("📋 View Invoice Details")
+
+    # --- Date range selection ---
+    col1, col2 = st.columns(2)
+    with col1:
+        from_date = st.date_input("📅 From Date", value=date.today().replace(day=1))
+    with col2:
+        to_date = st.date_input("📅 To Date", value=date.today())
+    
+    # Validate date range
+    if from_date > to_date:
+        st.error("❌ 'From Date' cannot be after 'To Date'")
+    else:
+        df = get_dc_delivery_details_with_date_filter(from_date, to_date)
+        if df.empty:
+            st.warning("⚠️ No delivery entries found for this date range.")
+        else:
+            st.dataframe(df, hide_index=True, use_container_width=True)
